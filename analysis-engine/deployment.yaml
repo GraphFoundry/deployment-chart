@@ -1,0 +1,106 @@
+# --- ServiceAccount for analysis-engine ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: analysis-engine
+  namespace: graph-foundry-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analysis-engine
+  namespace: graph-foundry-system
+  labels:
+    app: analysis-engine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analysis-engine
+  template:
+    metadata:
+      labels:
+        app: analysis-engine
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      serviceAccountName: analysis-engine
+      initContainers:
+        - name: wait-for-influxdb
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z influxdb.graph-foundry-system.svc.cluster.local 8181; do echo "Waiting for InfluxDB..."; sleep 5; done']
+        - name: wait-for-graph-engine
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z service-graph-engine.graph-foundry-system.svc.cluster.local 3000; do echo "Waiting for service-graph-engine..."; sleep 5; done']
+      containers:
+        - name: analysis-engine
+          image: prashansamarathunge/analysis-engine:latest
+          ports:
+            - containerPort: 7000
+          env:
+            - name: PORT
+              value: "7000"
+            - name: GRAPH_ENGINE_BASE_URL
+              value: "http://service-graph-engine.graph-foundry-system.svc.cluster.local:3000"
+            - name: INFLUX_HOST
+              value: "http://influxdb.graph-foundry-system.svc.cluster.local:8181"
+            - name: INFLUX_TOKEN_FILE
+              value: "/var/run/influxdb-token/INFLUX_TOKEN"
+            - name: INFLUX_DATABASE
+              value: "telemetry"
+            - name: DRILLS_KUBE_API_SERVER
+              value: "https://kubernetes.default.svc.cluster.local"
+            - name: WEBHOOK_ENABLED
+              value: "true"
+            - name: WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: webhook-secrets
+                  key: WEBHOOK_SECRET
+            - name: WEBHOOK_FORWARD_URLS
+              value: "http://dashboard-bff.graph-foundry-system.svc.cluster.local:3001/webhook/graph-update"
+            - name: WEBHOOK_FORWARD_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: webhook-secrets
+                  key: WEBHOOK_SECRET
+            - name: TELEMETRY_WORKER_ENABLED
+              value: "true"
+            - name: TELEMETRY_ENABLED
+              value: "true"
+          volumeMounts:
+            - name: analysis-data
+              mountPath: /app/data
+            - name: influxdb-token
+              mountPath: /var/run/influxdb-token
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 7000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 7000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+      volumes:
+        - name: analysis-data
+          emptyDir: {}
+        - name: influxdb-token
+          secret:
+            secretName: influxdb-token
+            optional: true

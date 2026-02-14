@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: analysis-engine
+  namespace: graph-foundry-system
+  labels:
+    app: analysis-engine
+spec:
+  type: ClusterIP
+  selector:
+    app: analysis-engine
+  ports:
+    - name: http
+      port: 7000
+      targetPort: 7000
