@@ -1,0 +1,234 @@
+# --- ServiceAccount & RBAC (lets the sidecar create/update Secrets) ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: influxdb
+  namespace: graph-foundry-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: influxdb-secret-manager
+  namespace: graph-foundry-system
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: influxdb-secret-manager
+  namespace: graph-foundry-system
+subjects:
+  - kind: ServiceAccount
+    name: influxdb
+    namespace: graph-foundry-system
+roleRef:
+  kind: Role
+  name: influxdb-secret-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+# --- Startup script ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: influxdb-scripts
+  namespace: graph-foundry-system
+data:
+  start.sh: |
+    #!/bin/sh
+
+    TOKEN_DIR="/var/run/influxdb-token"
+
+    # Start InfluxDB in background (fresh emptyDir = no tokens = no auth)
+    influxdb3 serve \
+      --node-id node0 \
+      --object-store file \
+      --data-dir /var/lib/influxdb3 \
+      --http-bind 0.0.0.0:8181 &
+    PID=$!
+
+    echo "Waiting for InfluxDB to become ready..."
+    for i in $(seq 1 60); do
+      sleep 5
+
+      # Attempt to create admin token.
+      # - If server not up yet: connection refused → retry
+      # - If server up, no token yet: succeeds (no auth required on fresh instance)
+      # - If "already exists": previous extraction failed → wipe data & restart
+      OUTPUT=$(influxdb3 create token --admin --host http://localhost:8181 2>&1)
+      EXIT_CODE=$?
+
+      echo "Attempt $i/60 – exit=$EXIT_CODE output: $OUTPUT"
+
+      if [ $EXIT_CODE -eq 0 ]; then
+        # Extract token (line format: "Token: apiv3_...")
+        TOKEN=$(echo "$OUTPUT" | sed -n 's/^Token: //p' | head -1)
+        if [ -z "$TOKEN" ]; then
+          # Fallback: grab anything starting with apiv3_
+          TOKEN=$(echo "$OUTPUT" | grep -oE 'apiv3_[a-zA-Z0-9_-]+' | head -1)
+        fi
+
+        if [ -n "$TOKEN" ]; then
+          echo "$TOKEN" > "${TOKEN_DIR}/token"
+          touch "${TOKEN_DIR}/ready"
+          echo "Admin token created and saved."
+
+          # Create the telemetry database
+          echo "Creating 'telemetry' database..."
+          influxdb3 create database telemetry \
+            --host http://localhost:8181 \
+            --token "$TOKEN" 2>/dev/null || true
+          echo "Database 'telemetry' ready."
+
+          echo "Restarting InfluxDB in foreground..."
+          kill $PID 2>/dev/null
+          wait $PID 2>/dev/null
+          exec influxdb3 serve \
+            --node-id node0 \
+            --object-store file \
+            --data-dir /var/lib/influxdb3 \
+            --http-bind 0.0.0.0:8181
+        fi
+
+        # Token was created but we couldn't parse it → unrecoverable in this cycle
+        echo "CRITICAL: token created but extraction failed. Wiping data dir to allow fresh retry..."
+        kill $PID 2>/dev/null
+        rm -rf /var/lib/influxdb3/*
+        exit 1
+      fi
+
+      # Check for "already exists" (means a prior attempt created it but we lost the token)
+      echo "$OUTPUT" | grep -q "already exists"
+      if [ $? -eq 0 ]; then
+        echo "Stale token detected. Wiping data dir to allow fresh retry..."
+        kill $PID 2>/dev/null
+        rm -rf /var/lib/influxdb3/*
+        exit 1
+      fi
+    done
+
+    if [ ! -f "${TOKEN_DIR}/ready" ]; then
+      echo "ERROR: could not create token after 60 attempts"
+      exit 1
+    fi
+---
+# --- Deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: influxdb
+  namespace: graph-foundry-system
+  labels:
+    app: influxdb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: influxdb
+  template:
+    metadata:
+      labels:
+        app: influxdb
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      serviceAccountName: influxdb
+      containers:
+        # ---- main: InfluxDB 3 Core ----
+        - name: influxdb
+          image: quay.io/influxdb/influxdb3-core:latest
+          command: ["/bin/sh", "/scripts/start.sh"]
+          ports:
+            - containerPort: 8181
+          volumeMounts:
+            - name: influxdb-data
+              mountPath: /var/lib/influxdb3
+            - name: scripts
+              mountPath: /scripts
+            - name: token-volume
+              mountPath: /var/run/influxdb-token
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          readinessProbe:
+            tcpSocket:
+              port: 8181
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8181
+            initialDelaySeconds: 30
+            periodSeconds: 20
+
+        # ---- sidecar: push token into K8s Secret ----
+        - name: token-to-secret
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for token file..."
+              while [ ! -f /var/run/influxdb-token/ready ]; do sleep 2; done
+
+              TOKEN_FILE="/var/run/influxdb-token/token"
+              if [ -f "$TOKEN_FILE" ] && [ -s "$TOKEN_FILE" ]; then
+                echo "Pushing token to Secret 'influxdb-token'..."
+                kubectl create secret generic influxdb-token \
+                  --namespace=graph-foundry-system \
+                  --from-literal=INFLUX_TOKEN="$(cat "$TOKEN_FILE")" \
+                  --dry-run=client -o yaml | kubectl apply -f -
+                echo "Secret 'influxdb-token' ready."
+              else
+                echo "ERROR: token file missing or empty"
+              fi
+              # keep sidecar alive so the pod stays Running
+              tail -f /dev/null
+          volumeMounts:
+            - name: token-volume
+              mountPath: /var/run/influxdb-token
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 50m
+              memory: 64Mi
+
+      volumes:
+        - name: influxdb-data
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: influxdb-scripts
+            defaultMode: 0755
+        - name: token-volume
+          emptyDir: {}
+---
+# --- Service ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: influxdb
+  namespace: graph-foundry-system
+  labels:
+    app: influxdb
+spec:
+  type: ClusterIP
+  selector:
+    app: influxdb
+  ports:
+    - name: http
+      port: 8181
+      targetPort: 8181
