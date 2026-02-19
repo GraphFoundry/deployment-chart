@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard-bff
+  namespace: graph-foundry-system
+  labels:
+    app: dashboard-bff
+spec:
+  type: ClusterIP
+  selector:
+    app: dashboard-bff
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001
