@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-graph-engine
+  namespace: graph-foundry-system
+  labels:
+    app: service-graph-engine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-graph-engine
+  template:
+    metadata:
+      labels:
+        app: service-graph-engine
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      serviceAccountName: service-graph-engine
+      initContainers:
+        - name: wait-for-neo4j
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z neo4j.graph-foundry-system.svc.cluster.local 7687; do echo "Waiting for Neo4j..."; sleep 5; done']
+      containers:
+        - name: service-graph-engine
+          image: prashansamarathunge/service-graph-engine:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: NEO4J_URI
+              value: "neo4j://neo4j.graph-foundry-system.svc.cluster.local:7687"
+            - name: NEO4J_USER
+              value: "neo4j"
+            - name: NEO4J_PASSWORD
+              value: "test1234"
+            - name: NEO4J_DATABASE
+              value: "neo4j"
+            - name: PROMETHEUS_URL
+              value: "http://prometheus.istio-system.svc.cluster.local:9090"
+            - name: KUBERNETES_API_URL
+              value: "https://kubernetes.default.svc.cluster.local"
+            - name: WEBHOOK_URLS
+              value: "http://analysis-engine.graph-foundry-system.svc.cluster.local:7000/webhook/graph-update"
+            - name: WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: webhook-secrets
+                  key: WEBHOOK_SECRET
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /graph/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /graph/health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20
