@@ -1,0 +1,71 @@
+# The scheduler watches for unscheduled pods and delegates to best-node-selector.
+# It runs in kube-system namespace as it acts as a custom scheduler.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: graph-scheduler
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: graph-scheduler
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "bindings", "pods/binding"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: graph-scheduler
+subjects:
+  - kind: ServiceAccount
+    name: graph-scheduler
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: graph-scheduler
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: graph-scheduler
+  namespace: kube-system
+  labels:
+    app: graph-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: graph-scheduler
+  template:
+    metadata:
+      labels:
+        app: graph-scheduler
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      serviceAccountName: graph-scheduler
+      containers:
+        - name: scheduler
+          image: prashansamarathunge/graph-scheduler:latest
+          command: ["/app/scheduler"]
+          env:
+            - name: BEST_NODE_SELECTOR_URL
+              value: "http://best-node-selector.graph-foundry-system.svc.cluster.local:9000"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
