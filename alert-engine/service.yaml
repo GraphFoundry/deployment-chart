@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: graph-alert-engine
+  namespace: graph-foundry-system
+  labels:
+    app: graph-alert-engine
+spec:
+  type: ClusterIP
+  selector:
+    app: graph-alert-engine
+  ports:
+    - name: http
+      port: 8002
+      targetPort: 8002
