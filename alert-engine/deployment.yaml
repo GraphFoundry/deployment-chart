@@ -49,11 +49,6 @@ spec:
               value: "default"
             - name: ENVIRONMENT
               value: "production"
-            - name: SLACK_WEBHOOK_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: graph-alert-engine-runtime
-                  key: slack-webhook-url
           volumeMounts:
             - name: runtime-config
               mountPath: /etc/runtime-config

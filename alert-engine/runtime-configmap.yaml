@@ -7,7 +7,6 @@ metadata:
     app: graph-alert-engine
     managed-by: dashboard-bff
 data:
-  slack-webhook-url: "https://hooks.slack.com/services/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"
   runtime.env: |
     GRAPH_TIMEOUT_MS=2000
     GRAPH_RETRY_MAX=2
@@ -16,3 +15,5 @@ data:
     RISK_W2=1.0
     RISK_W3=1.0
     RISK_THRESHOLD=60.0
+    # Set by engineer when Slack integration is ready:
+    # SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
