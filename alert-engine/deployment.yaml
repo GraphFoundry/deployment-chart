@@ -21,7 +21,22 @@ spec:
         - key: node-role.kubernetes.io/control-plane
           operator: Exists
           effect: NoSchedule
+      serviceAccountName: alert-engine
       initContainers:
+        - name: ensure-slack-secret
+          image: bitnami/kubectl:1.28
+          command:
+            - sh
+            - -c
+            - |
+              if kubectl get secret alert-engine-secrets -n graph-foundry-system >/dev/null 2>&1; then
+                echo "Secret alert-engine-secrets already exists, skipping creation."
+              else
+                kubectl create secret generic alert-engine-secrets \
+                  --namespace graph-foundry-system \
+                  --from-literal=slack-webhook-url='https://hooks.slack.com/services/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'
+                echo "Secret alert-engine-secrets created."
+              fi
         - name: wait-for-graph-engine
           image: busybox:1.36
           command: ['sh', '-c', 'until nc -z service-graph-engine.graph-foundry-system.svc.cluster.local 3000; do echo "Waiting for service-graph-engine..."; sleep 5; done']
@@ -48,6 +63,12 @@ spec:
               value: "default"
             - name: ENVIRONMENT
               value: "production"
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: alert-engine-secrets
+                  key: slack-webhook-url
+                  optional: true
           resources:
             requests:
               cpu: 100m
