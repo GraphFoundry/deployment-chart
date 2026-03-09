@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analysis-engine-runtime
+  namespace: graph-foundry-system
+  labels:
+    app: analysis-engine
+    managed-by: dashboard-bff
+data:
+  runtime.env: |
+    MAX_TRAVERSAL_DEPTH=2
+    SCALING_MODEL=bounded_sqrt
+    SCALING_ALPHA=0.5
+    MIN_LATENCY_FACTOR=0.6
+    TIMEOUT_MS=8000
+    MAX_PATHS_RETURNED=10
+    SHARED_HOST_RESOURCES=false
+    RATE_LIMIT_WINDOW_MS=60000
+    RATE_LIMIT_MAX=60
+    WEBHOOK_FORWARD_RETRY_MAX=5
+    WEBHOOK_FORWARD_RETRY_BASE_DELAY_MS=250
+    WEBHOOK_FORWARD_RETRY_MAX_DELAY_MS=5000
+    WEBHOOK_MAX_IN_FLIGHT=32
+    WEBHOOK_PROCESS_TIMEOUT_MS=15000

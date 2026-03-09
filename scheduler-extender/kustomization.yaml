@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - redis.yaml
   - rbac.yaml
+  - bns-runtime-configmap.yaml
   - best-node-selector-deployment.yaml
   - best-node-selector-service.yaml
   - scheduler-deployment.yaml

@@ -25,3 +25,33 @@ subjects:
   - kind: ServiceAccount
     name: dashboard-bff
     namespace: graph-foundry-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: dashboard-bff-config-manager
+  namespace: graph-foundry-system
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames:
+      - service-graph-engine-runtime
+      - analysis-engine-runtime
+      - graph-alert-engine-runtime
+      - best-node-selector-runtime
+      - dashboard-bff-runtime
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dashboard-bff-config-manager
+  namespace: graph-foundry-system
+subjects:
+  - kind: ServiceAccount
+    name: dashboard-bff
+    namespace: graph-foundry-system
+roleRef:
+  kind: Role
+  name: dashboard-bff-config-manager
+  apiGroup: rbac.authorization.k8s.io

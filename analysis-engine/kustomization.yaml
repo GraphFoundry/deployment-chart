@@ -4,5 +4,6 @@ kind: Kustomization
 resources:
   - influxdb.yaml
   - rbac.yaml
+  - runtime-configmap.yaml
   - deployment.yaml
   - service.yaml

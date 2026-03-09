@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-graph-engine-runtime
+  namespace: graph-foundry-system
+  labels:
+    app: service-graph-engine
+    managed-by: dashboard-bff
+data:
+  runtime.env: |
+    POLL_INTERVAL_Ms=30000
+    SCORE_CALCULATION_INTERVAL_Ms=120000

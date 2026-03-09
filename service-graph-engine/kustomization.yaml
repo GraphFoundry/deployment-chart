@@ -4,5 +4,6 @@ kind: Kustomization
 resources:
   - neo4j.yaml
   - rbac.yaml
+  - runtime-configmap.yaml
   - deployment.yaml
   - service.yaml

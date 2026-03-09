@@ -48,6 +48,10 @@ spec:
                 secretKeyRef:
                   name: webhook-secrets
                   key: WEBHOOK_SECRET
+          volumeMounts:
+            - name: runtime-config
+              mountPath: /etc/runtime-config
+              readOnly: true
           resources:
             requests:
               cpu: 100m
@@ -67,3 +71,7 @@ spec:
               port: 3001
             initialDelaySeconds: 30
             periodSeconds: 20
+      volumes:
+        - name: runtime-config
+          configMap:
+            name: dashboard-bff-runtime

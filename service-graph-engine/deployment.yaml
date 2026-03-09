@@ -53,6 +53,10 @@ spec:
                 secretKeyRef:
                   name: webhook-secrets
                   key: WEBHOOK_SECRET
+          volumeMounts:
+            - name: runtime-config
+              mountPath: /etc/runtime-config
+              readOnly: true
           resources:
             requests:
               cpu: 100m
@@ -72,3 +76,7 @@ spec:
               port: 3000
             initialDelaySeconds: 20
             periodSeconds: 20
+      volumes:
+        - name: runtime-config
+          configMap:
+            name: service-graph-engine-runtime

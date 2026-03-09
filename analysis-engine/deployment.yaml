@@ -54,8 +54,6 @@ spec:
               value: "telemetry"
             - name: DRILLS_KUBE_API_SERVER
               value: "https://kubernetes.default.svc.cluster.local"
-            - name: WEBHOOK_ENABLED
-              value: "true"
             - name: WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:
@@ -68,8 +66,6 @@ spec:
                 secretKeyRef:
                   name: webhook-secrets
                   key: WEBHOOK_SECRET
-            - name: TELEMETRY_WORKER_ENABLED
-              value: "true"
             - name: TELEMETRY_ENABLED
               value: "true"
           volumeMounts:
@@ -77,6 +73,9 @@ spec:
               mountPath: /app/data
             - name: influxdb-token
               mountPath: /var/run/influxdb-token
+              readOnly: true
+            - name: runtime-config
+              mountPath: /etc/runtime-config
               readOnly: true
           resources:
             requests:
@@ -104,3 +103,6 @@ spec:
           secret:
             secretName: influxdb-token
             optional: true
+        - name: runtime-config
+          configMap:
+            name: analysis-engine-runtime

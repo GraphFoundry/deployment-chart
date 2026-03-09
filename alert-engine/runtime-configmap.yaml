@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: graph-alert-engine-runtime
+  namespace: graph-foundry-system
+  labels:
+    app: graph-alert-engine
+    managed-by: dashboard-bff
+data:
+  slack-webhook-url: "https://hooks.slack.com/services/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"
+  runtime.env: |
+    GRAPH_TIMEOUT_MS=2000
+    GRAPH_RETRY_MAX=2
+    CENTRALITY_CACHE_TTL_MS=30000
+    RISK_W1=1.0
+    RISK_W2=1.0
+    RISK_W3=1.0
+    RISK_THRESHOLD=60.0

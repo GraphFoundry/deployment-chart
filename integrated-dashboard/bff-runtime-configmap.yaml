@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-bff-runtime
+  namespace: graph-foundry-system
+  labels:
+    app: integrated-dashboard-bff
+    managed-by: dashboard-bff
+data:
+  runtime.env: |
+    WEBHOOK_REPLAY_WINDOW_SEC=300
+    WEBHOOK_DEDUPE_WINDOW_SEC=86400
+    WEBHOOK_RATE_LIMIT_WINDOW_MS=60000
+    WEBHOOK_RATE_LIMIT_MAX=120

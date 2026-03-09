@@ -44,6 +44,10 @@ spec:
               value: "true"
             - name: WATCH_NAMESPACES
               value: "default"
+          volumeMounts:
+            - name: runtime-config
+              mountPath: /etc/runtime-config
+              readOnly: true
           resources:
             requests:
               cpu: 100m
@@ -63,3 +67,7 @@ spec:
               port: 9000
             initialDelaySeconds: 15
             periodSeconds: 20
+      volumes:
+        - name: runtime-config
+          configMap:
+            name: best-node-selector-runtime

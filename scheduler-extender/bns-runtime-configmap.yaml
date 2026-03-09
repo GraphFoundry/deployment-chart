@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: best-node-selector-runtime
+  namespace: graph-foundry-system
+  labels:
+    app: best-node-selector
+    managed-by: dashboard-bff
+data:
+  runtime.env: |
+    TIME_WINDOW_SECONDS=10
+    TOPK_PEERS=1
+    ENABLE_SCORE_UPDATE=true
+    SCORER_INTERVAL_SEC=10
+    REBALANCING_ENABLED=true
+    REBALANCE_INTERVAL_SECONDS=300
+    REBALANCE_COOLDOWN_SECONDS=1800
+    LATENCY_THRESHOLD_MS=40
+    MAX_PODS_MOVED_PER_CYCLE=3
+    MAX_REBALANCE_DURATION_SECONDS=30
+    MIN_POD_AGE_FOR_REBALANCE_SECONDS=600
+    POD_REBALANCE_ANTITHRASH_SECONDS=3600

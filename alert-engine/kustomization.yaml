@@ -3,5 +3,6 @@ kind: Kustomization
 
 resources:
   - rbac.yaml
+  - runtime-configmap.yaml
   - deployment.yaml
   - service.yaml

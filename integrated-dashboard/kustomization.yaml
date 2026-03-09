@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - nginx-configmap.yaml
+  - bff-runtime-configmap.yaml
   - rbac.yaml
   - bff-deployment.yaml
   - bff-service.yaml
