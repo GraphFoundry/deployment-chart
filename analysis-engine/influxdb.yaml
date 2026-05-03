@@ -60,7 +60,7 @@ data:
       OUTPUT=$(influxdb3 create token --admin --host http://localhost:8181 2>&1)
       EXIT_CODE=$?
 
-      echo "Attempt $i/60 – exit=$EXIT_CODE output: $OUTPUT"
+      echo "Attempt $i/60 - exit=$EXIT_CODE output: $OUTPUT"
 
       if [ $EXIT_CODE -eq 0 ]; then
         # Extract token (line format: "Token: apiv3_...")
@@ -170,7 +170,6 @@ spec:
               port: 8181
             initialDelaySeconds: 30
             periodSeconds: 20
-
         # ---- sidecar: push token into K8s Secret ----
         - name: token-to-secret
           image: bitnami/kubectl:latest
@@ -201,10 +200,10 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 32Mi
-            limits:
-              cpu: 50m
               memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 256Mi
 
       volumes:
         - name: influxdb-data
