@@ -35,7 +35,7 @@ spec:
             - name: PORT
               value: "3000"
             - name: NEO4J_URI
-              value: "neo4j://neo4j.graph-foundry-system.svc.cluster.local:7687"
+              value: "bolt://neo4j.graph-foundry-system.svc.cluster.local:7687"
             - name: NEO4J_USER
               value: "neo4j"
             - name: NEO4J_PASSWORD
@@ -59,7 +59,7 @@ spec:
               readOnly: true
           resources:
             requests:
-              cpu: 100m
+              cpu: 25m
               memory: 128Mi
             limits:
               cpu: 500m
